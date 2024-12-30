@@ -45,6 +45,70 @@ func (p *Pool) getProgramAccounts(mint1 string, mint2 string) (rpc.GetProgramAcc
 	})
 }
 
+func (p *Pool) GetPoolKeysByPoolAcount(poolAddr string) (*layouts.ApiPoolInfoV4, error) {
+	var layout layouts.LIQUIDITY_STATE_LAYOUT_V4
+	var marketLayout layouts.MarketStateLayoutV3
+
+	pool, err := solana.PublicKeyFromBase58(poolAddr)
+	if err != nil {
+		return &layouts.ApiPoolInfoV4{}, errors.New("Pool address invalid")
+	}
+	poolAccount, err := p.connection.GetAccountInfo(context.Background(), pool)
+	if err != nil {
+		return &layouts.ApiPoolInfoV4{}, err
+	}
+
+	layout.Decode(poolAccount.Value.Data.GetBinary())
+	marketAccount, err := p.connection.GetAccountInfo(context.Background(), layout.MarketId)
+
+	if err != nil {
+		return &layouts.ApiPoolInfoV4{}, err
+	}
+
+	marketLayout.Decode(marketAccount.Value.Data.GetBinary())
+
+	authority, _, err := solana.FindProgramAddress([][]byte{{97, 109, 109, 32, 97, 117, 116, 104, 111, 114, 105, 116, 121}}, constants.RAYDIUM_V4_PROGRAM_ID)
+
+	if err != nil {
+		return &layouts.ApiPoolInfoV4{}, nil
+	}
+
+	marketAuthority, _, err := utils.GetAssociatedAuthority(marketAccount.Value.Owner, marketLayout.OwnAddress)
+
+	if err != nil {
+		return &layouts.ApiPoolInfoV4{}, err
+	}
+
+	return &layouts.ApiPoolInfoV4{
+		ID:                 pool,
+		BaseMint:           layout.BaseMint,
+		QuoteMint:          layout.QuoteMint,
+		LpMint:             layout.LpMint,
+		BaseDecimals:       layout.BaseDecimal,
+		QuoteDecimals:      layout.QuoteDecimal,
+		LpDecimals:         layout.BaseDecimal,
+		Version:            4,
+		ProgramId:          constants.RAYDIUM_V4_PROGRAM_ID,
+		OpenOrders:         layout.OpenOrders,
+		TargetOrders:       layout.TargetOrders,
+		BaseVault:          layout.BaseVault,
+		QuoteVault:         layout.QuoteVault,
+		MarketVersion:      3,
+		Authority:          authority,
+		MarketProgramId:    marketAccount.Value.Owner,
+		MarketId:           marketLayout.OwnAddress,
+		MarketAuthority:    marketAuthority,
+		MarketBaseVault:    marketLayout.BaseVault,
+		MarketQuoteVault:   marketLayout.QuoteVault,
+		MarketBids:         marketLayout.Bids,
+		MarketAsks:         marketLayout.Asks,
+		MarketEventQueue:   marketLayout.EventQueue,
+		WithdrawQueue:      layout.WithdrawQueue,
+		LpVault:            layout.LpVault,
+		LookupTableAccount: solana.PublicKey{},
+	}, nil
+}
+
 func (p *Pool) GetPoolKeys(mint1 string, mint2 string) (*layouts.ApiPoolInfoV4, error) {
 	var layout layouts.LIQUIDITY_STATE_LAYOUT_V4
 	var marketLayout layouts.MarketStateLayoutV3
