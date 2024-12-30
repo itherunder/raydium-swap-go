@@ -2,7 +2,7 @@ package liquidity
 
 import (
 	bin "github.com/gagliardetto/binary"
-	"github.com/scribesavant/raydium-swap-go/raydium/utils"
+	"github.com/itherunder/raydium-swap-go/raydium/utils"
 )
 
 type SimulateStruct struct {

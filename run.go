@@ -7,9 +7,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/scribesavant/raydium-swap-go/raydium"
-	"github.com/scribesavant/raydium-swap-go/raydium/trade"
-	"github.com/scribesavant/raydium-swap-go/raydium/utils"
+	"github.com/itherunder/raydium-swap-go/raydium"
+	"github.com/itherunder/raydium-swap-go/raydium/trade"
+	"github.com/itherunder/raydium-swap-go/raydium/utils"
 )
 
 func main() {

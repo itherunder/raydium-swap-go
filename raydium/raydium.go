@@ -3,9 +3,9 @@ package raydium
 import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/scribesavant/raydium-swap-go/raydium/liquidity"
-	"github.com/scribesavant/raydium-swap-go/raydium/pool"
-	"github.com/scribesavant/raydium-swap-go/raydium/trade"
+	"github.com/itherunder/raydium-swap-go/raydium/liquidity"
+	"github.com/itherunder/raydium-swap-go/raydium/pool"
+	"github.com/itherunder/raydium-swap-go/raydium/trade"
 )
 
 type Raydium struct {

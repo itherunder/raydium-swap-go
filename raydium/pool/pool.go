@@ -6,9 +6,9 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	"github.com/scribesavant/raydium-swap-go/raydium/constants"
-	"github.com/scribesavant/raydium-swap-go/raydium/layouts"
-	"github.com/scribesavant/raydium-swap-go/raydium/utils"
+	"github.com/itherunder/raydium-swap-go/raydium/constants"
+	"github.com/itherunder/raydium-swap-go/raydium/layouts"
+	"github.com/itherunder/raydium-swap-go/raydium/utils"
 )
 
 type Pool struct {
