@@ -111,13 +111,7 @@ func (t *Trade) MakeSwapTransaction(poolKeys *layouts.ApiPoolInfoV4, amountIn *u
 	return tx, nil
 }
 
-func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amountIn *utils.TokenAmount, minAmountOut *utils.TokenAmount, feeConfig FeeConfig, jitoAddr string, jitoFeesWithDecimals uint64) (*solana.Transaction, error) {
-	recent, err := t.Connection.GetLatestBlockhash(context.Background(), rpc.CommitmentFinalized)
-
-	if err != nil {
-		return &solana.Transaction{}, err
-	}
-
+func (t *Trade) MakeSwapInstructions(poolKeys *layouts.ApiPoolInfoV4, amountIn *utils.TokenAmount, minAmountOut *utils.TokenAmount, feeConfig FeeConfig) ([]solana.Instruction, error) {
 	var instructions []solana.Instruction = []solana.Instruction{
 		computebudget.NewSetComputeUnitLimitInstruction(600000).Build(),
 		computebudget.NewSetComputeUnitPriceInstruction(feeConfig.MicroLamports).Build(),
@@ -126,13 +120,13 @@ func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amo
 	tokenAccountIn, err := t.selectOrCreateAccount(amountIn, &instructions, "in")
 
 	if err != nil {
-		return &solana.Transaction{}, err
+		return nil, err
 	}
 
 	tokenAccountOut, err := t.selectOrCreateAccount(minAmountOut, &instructions, "out")
 
 	if err != nil {
-		return &solana.Transaction{}, err
+		return nil, err
 	}
 	instr, err := NewSwapV4Instruction(
 		t.Connection,
@@ -145,7 +139,7 @@ func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amo
 	)
 
 	if err != nil {
-		return &solana.Transaction{}, err
+		return nil, err
 	}
 
 	instructions = append(instructions, instr)
@@ -159,7 +153,7 @@ func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amo
 		).ValidateAndBuild()
 
 		if err != nil {
-			return &solana.Transaction{}, err
+			return nil, err
 		}
 
 		instructions = append(instructions, closeAccInst)
@@ -172,36 +166,13 @@ func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amo
 		).ValidateAndBuild()
 
 		if err != nil {
-			return &solana.Transaction{}, err
+			return nil, err
 		}
 
 		instructions = append(instructions, closeAccInst)
 	}
 
-	jitoAccount := solana.MustPublicKeyFromBase58(jitoAddr)
-
-	instructions = append(
-		instructions,
-		system.
-			NewTransferInstructionBuilder().
-			SetFundingAccount(t.Signer.PublicKey()).
-			SetRecipientAccount(jitoAccount).
-			SetLamports(jitoFeesWithDecimals).
-			Build(),
-	)
-
-	tx, _ := solana.NewTransaction(
-		instructions,
-		recent.Value.Blockhash,
-		solana.TransactionPayer(t.Signer.PublicKey()),
-	)
-	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
-		return t.Signer
-	})
-	if err != nil {
-		return &solana.Transaction{}, err
-	}
-	return tx, nil
+	return instructions, nil
 }
 
 func (t *Trade) selectOrCreateAccount(amount *utils.TokenAmount, insttr *[]solana.Instruction, side string) (solana.PublicKey, error) {
