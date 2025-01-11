@@ -111,6 +111,99 @@ func (t *Trade) MakeSwapTransaction(poolKeys *layouts.ApiPoolInfoV4, amountIn *u
 	return tx, nil
 }
 
+func (t *Trade) MakeSwapTransactionWithJito(poolKeys *layouts.ApiPoolInfoV4, amountIn *utils.TokenAmount, minAmountOut *utils.TokenAmount, feeConfig FeeConfig, jitoAddr string, jitoFeesWithDecimals uint64) (*solana.Transaction, error) {
+	recent, err := t.Connection.GetLatestBlockhash(context.Background(), rpc.CommitmentFinalized)
+
+	if err != nil {
+		return &solana.Transaction{}, err
+	}
+
+	var instructions []solana.Instruction = []solana.Instruction{
+		computebudget.NewSetComputeUnitLimitInstruction(600000).Build(),
+		computebudget.NewSetComputeUnitPriceInstruction(feeConfig.MicroLamports).Build(),
+	}
+
+	tokenAccountIn, err := t.selectOrCreateAccount(amountIn, &instructions, "in")
+
+	if err != nil {
+		return &solana.Transaction{}, err
+	}
+
+	tokenAccountOut, err := t.selectOrCreateAccount(minAmountOut, &instructions, "out")
+
+	if err != nil {
+		return &solana.Transaction{}, err
+	}
+	instr, err := NewSwapV4Instruction(
+		t.Connection,
+		poolKeys,
+		uint64(amountIn.Amount),
+		uint64(minAmountOut.Amount),
+		tokenAccountIn,
+		tokenAccountOut,
+		*t.Signer,
+	)
+
+	if err != nil {
+		return &solana.Transaction{}, err
+	}
+
+	instructions = append(instructions, instr)
+
+	if amountIn.Token.Mint == constants.WSOl.String() {
+		closeAccInst, err := token.NewCloseAccountInstruction(
+			tokenAccountIn,
+			t.Signer.PublicKey(),
+			t.Signer.PublicKey(),
+			[]solana.PublicKey{},
+		).ValidateAndBuild()
+
+		if err != nil {
+			return &solana.Transaction{}, err
+		}
+
+		instructions = append(instructions, closeAccInst)
+	} else if minAmountOut.Token.Mint == constants.WSOl.String() {
+		closeAccInst, err := token.NewCloseAccountInstruction(
+			tokenAccountOut,
+			t.Signer.PublicKey(),
+			t.Signer.PublicKey(),
+			[]solana.PublicKey{},
+		).ValidateAndBuild()
+
+		if err != nil {
+			return &solana.Transaction{}, err
+		}
+
+		instructions = append(instructions, closeAccInst)
+	}
+
+	jitoAccount := solana.MustPublicKeyFromBase58(jitoAddr)
+
+	instructions = append(
+		instructions,
+		system.
+			NewTransferInstructionBuilder().
+			SetFundingAccount(t.Signer.PublicKey()).
+			SetRecipientAccount(jitoAccount).
+			SetLamports(jitoFeesWithDecimals).
+			Build(),
+	)
+
+	tx, _ := solana.NewTransaction(
+		instructions,
+		recent.Value.Blockhash,
+		solana.TransactionPayer(t.Signer.PublicKey()),
+	)
+	_, err = tx.Sign(func(key solana.PublicKey) *solana.PrivateKey {
+		return t.Signer
+	})
+	if err != nil {
+		return &solana.Transaction{}, err
+	}
+	return tx, nil
+}
+
 func (t *Trade) selectOrCreateAccount(amount *utils.TokenAmount, insttr *[]solana.Instruction, side string) (solana.PublicKey, error) {
 	acc, err := t.Connection.GetTokenAccountsByOwner(context.Background(), t.Signer.PublicKey(), &rpc.GetTokenAccountsConfig{Mint: amount.Token.PublicKey().ToPointer()}, &rpc.GetTokenAccountsOpts{
 		Encoding: "jsonParsed",
